@@ -1,0 +1,150 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+```{r}
+#install.packages("titanic")
+library(titanic)
+data(titanic_train)
+View(titanic_train)
+```
+
+```{r}
+#remove and transform data
+titanic_train$PassengerId<-NULL
+titanic_train$Name<-NULL
+titanic_train$Ticket<-NULL
+titanic_train$Cabin<-NULL
+titanic_train$Fare<-log(titanic_train$Fare)
+View(titanic_train)
+```
+
+```{r}
+#plots for 3 pairs of variables
+
+titanic1<- as.data.frame(titanic_train)
+library(GGally)
+#Age Survived
+mosaicplot(titanic_train$Survived~titanic_train$Age)
+ggplot(titanic_train, aes(x=Age,color='Survived')) +
+    geom_histogram(binwidth=.5, alpha=0.6, position="identity")
+# Change histogram plot fill colors by if survived
+cond <- titanic_train$Survived == 1
+ggplot(titanic_train, aes(x=Age)) +
+geom_histogram(data=subset(titanic_train,cond==TRUE),binwidth=1,fill="green",alpha=.5) +
+  geom_histogram(data=subset(titanic_train,cond==FALSE),binwidth=1,fill="red",alpha=.3)
+
+
+#Sex Survived
+mosaicplot(titanic_train$Survived~titanic_train$Sex)
+
+#Fare Survived
+mosaicplot(titanic_train$Survived~titanic_train$Fare)
+# Change histogram plot fill colors by if survived 
+cond <- titanic_train$Survived == 1
+ggplot(titanic_train, aes(x=Fare)) +
+geom_histogram(data=subset(titanic_train,cond==TRUE),binwidth=0.1,fill="green",alpha=.5) +
+  geom_histogram(data=subset(titanic_train,cond==FALSE),binwidth=0.1,fill="red",alpha=.3)
+
+```
+
+```{r}
+#create a model matrix
+#matrix only contains numbers, convert a data frame into numeric 
+#remove Survived variable
+titanic2 <- model.matrix(~Pclass+Age+SibSp+Parch+Fare, data=titanic1)
+#delete rows with inf values
+titanic2[is.infinite(titanic2)] <- NA 
+titanic2 <- na.omit(titanic2) 
+#turn into list titanic2<- split(titanic2, rep(1:ncol(titanic2), each = nrow(titanic2)))
+```
+
+```{r}
+#fit PCA to matrix
+titanicpca <- prcomp(titanic2[,-1],center = TRUE,scale. = TRUE)
+titanicpca$rotation
+#plot using only first 2 dimensions
+titanic1$Survived <- factor(titanic_train$Survived) #turn survived back to factor
+plot(titanicpca$x[,1:2],col=titanic1$Survived)
+```
+
+Age and EmbarkedqQ are chosen. 
+```{r}
+#NMF rank 2
+#install.packages("NMF")
+library(NMF)
+#W (u x k) and H (k x v)
+#A ¡Ö WH
+#matrix titanic2[,-1] with desired dimension k=2
+#perform multiple runs of one algorithm (default is to keep only best fit)
+titanicnmf <- nmf(titanic2[,-1],rank = 2,method = "snmf/r",nrun =10)
+#consensusmap(titanicnmf) 
+#Sys.setlocale('LC_ALL','C') Chinese character not error
+w <- basis(titanicnmf) #  W  user feature matrix matrix
+h <- coef(titanicnmf)
+A <- w %*% h #is matrix multiplication
+dim(w)
+df <- as.data.frame(w)
+head(df,10)
+#View(titanic2[,-1])
+
+scaledifference <- scale(A -titanic2[,-1],scale=FALSE) ##lookingt at the sum of suqared difference compared to the original data and delete the smallest,  why scale= FALSE? 
+squarescale <- scaledifference^2
+colSums(squarescale) #since Age and EmbarkedqQ has the lowest square difference, these two are chosen 
+summary(squarescale)
+```
+```{r}
+data("titanic_test")
+titanic_test$PassengerId<-NULL
+titanic_test$Name<-NULL
+titanic_test$Ticket<-NULL
+titanic_test$Cabin<-NULL
+titanic_test$Fare<-log(titanic_test$Fare)
+titanic_test$Embarked<- as.character(titanic_test$Embarked)
+View(titanic_test)
+
+# Predict PCs
+titanic_test1<- as.data.frame(titanic_test)
+titanic_test2 <- model.matrix(~Pclass+Age+SibSp+Parch+Fare, data=titanic_test1)
+titanic_test2[is.infinite(titanic_test2)] <- NA 
+titanic_test2 <- na.omit(titanic_test2) 
+titanic_test3 <- titanic_test2[,-1]
+testpca <- predict(titanicpca,newdata=titanic_test3)[,1:2]
+
+```
+
+```{r}
+MyData <- read.csv(file="C:/Users/zhang/Desktop/heart.csv")
+data<- as.data.frame(MyData)
+data1 <- model.matrix(~age+trestbps+chol+thalach+oldpeak, data=data)
+data1<- data1[,-1]
+
+#fit PCA to matrix
+data1pca <- prcomp(data1,center = TRUE,scale. = TRUE)
+data1pca$rotation
+#plot using only first 2 dimensions
+MyData$sex<-as.factor(MyData$sex)
+plot(data1pca$x[,1:2],col=MyData$sex)
+```
+```{r}
+#install.packages("logisticPCA")
+library(ggplot2)
+library(logisticPCA)
+logpca_cv = cv.lpca(data1, ks = 2, ms = 1:10)
+
+
+```
+
+
+
+
+
+
+
+
+
+
