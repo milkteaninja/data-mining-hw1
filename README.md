@@ -1,4 +1,4 @@
-# stat-6240-hm1
+# stat-6240-hw1
 
 # Question 1 
 • Install the titanic package from CRAN and load the titanic_train dataset, and check its help file to learn what the dataset contains.
